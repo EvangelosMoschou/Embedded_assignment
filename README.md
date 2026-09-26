@@ -1,5 +1,7 @@
 # Bluesky Jetstream Firehose Collector
 
+**https://github.com/EvangelosMoschou/Embedded_assignment**
+
 A multithreaded, real-time data acquisition system written in **C**, running on a
 **Raspberry Pi Zero W** (ARM1176 / ARMv6, single core @ 1 GHz, 512 MB, no
 real-time kernel). It subscribes to the public Bluesky **Jetstream** firehose over
@@ -7,6 +9,31 @@ a WebSocket, classifies every incoming JSON message by its `kind` field, and
 appends one line of telemetry per second to a CSV log.
 
 Final assignment for Real-Time Embedded Systems, September 2026.
+
+---
+
+## Repository layout
+
+```
+src/        Everything that runs on the Pi: the C source, the Makefile,
+            the systemd units and the operational scripts.  (see src/README.md)
+data/       The 24-hour dataset and the supporting logs for the same day.
+analysis/   The post-processing script and the figures it produces.
+report/     The report (XeLaTeX source and PDF).
+docs/       Long-run behaviour and the restart investigation.
+```
+
+| Path | What it is |
+|---|---|
+| `src/firehose_collector.c` | The program — producer, consumer, logger and watchdog threads. |
+| `src/Makefile` | Builds it. |
+| `data/metrics_log.txt` | **The required 24-hour dataset** — 8 fields, one line per second. |
+| `data/diag_log_2026-09-20.csv` | Jitter, peak occupancy, drop and truncation counters. |
+| `data/connection_log.txt` | Connect / disconnect / reconnect / watchdog events. |
+| `data/health_log_2026-09-20.csv` | RSS, threads, temperature and throttling, once a minute. |
+| `analysis/plot_metrics.py` | Produces the three required plots. |
+| `analysis/figs/` | The generated figures (including a combined three-panel overview). |
+| `report/architecture.pdf` | The report. |
 
 ---
 
@@ -28,23 +55,30 @@ The collector ran continuously and unattended on the physical Raspberry Pi from
 | CPU utilisation | 7.8 % mean (of one core) |
 | Resident memory | 12.5 MB (of which 4 MB is the pre-allocated queue) |
 | Network disconnections | 42, all auto-recovered, longest outage 3.0 s |
-| Process restarts | 1 (watchdog, see below) |
+| Process restarts | 1 (watchdog — see below) |
 
-**Time without incoming data: 191 s out of 86 400 (0.221 %).** It breaks down as
-two distinct causes, which only the accompanying logs can separate:
+**Time without incoming data: 191 s out of 86 400 (0.221 %).** It has two
+distinct causes, which only the accompanying logs can tell apart:
 
-| Cause | Evidence | Time |
+| Cause | Where it shows | Time |
 |---|---|---|
-| Process not running | 6 missing rows in `metrics_log.txt` | 6 s |
-| Socket disconnected | 42 `DISCONNECTED` events in `connection_log.txt` | 90.5 s |
-| Server sent nothing (socket alive) | rows present, all counters zero | ~95 s |
+| The process was not running | 6 missing rows in `metrics_log.txt` | 6 s |
+| The socket was disconnected | 42 `DISCONNECTED` events in `connection_log.txt` | 90.5 s |
+| The server sent nothing (socket alive) | rows present, all counters zero | ~95 s |
 
-The single restart occurred at 14:43:45 local, when the producer thread stalled
-inside the network library with the connection established. The supervisory
-thread detected the stale heartbeat after 5 s, terminated the process, and
-`systemd` restarted it 5.5 s later. The watchdog distinguishes this from a quiet
-network: at 01:28:17 the log shows an *identical* seven-second interval with no
-messages, in which **no** restart occurred because the thread was alive. Detail in
+A row exists for **every** second in which the process was alive, including the
+seconds in which nothing arrived — those are written with all counters zero, so
+periods without data are never silently omitted. Since the average rate is
+39.5 messages/second, an empty second is not statistical noise: it is a real
+interruption of reception.
+
+The single restart happened at 14:43:45 local, when the producer thread stalled
+inside the network library while the connection was still established. The
+supervisory thread detected the stale heartbeat after 5 s, terminated the
+process, and `systemd` restarted it 5.5 s later. The watchdog distinguishes this
+from a quiet network: at 01:28:17 the log shows an *identical* seven-second
+interval with no messages in which **no** restart occurred, because the thread
+was alive. The full evidence chain is in
 [`docs/observations.md`](docs/observations.md).
 
 ---
@@ -55,38 +89,19 @@ Four threads, decoupled so that a delay in one cannot propagate into the others:
 
 | Thread | Role |
 |---|---|
-| **Producer** | libwebsockets event loop (`lws_service`, 50 ms). Reassembles fragmented frames, enqueues complete messages, never blocks. Reconnects with exponential backoff (1…60 s, reset after a connection lasting > 60 s). |
-| **Consumer** | Sleeps on the queue's condition variable, parses with **jsmn** (zero-allocation tokeniser), increments four counters under their own mutex. Performs no I/O. |
-| **Logger** | Strictly periodic 1 Hz via `clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME)`, advanced from the **previous ideal deadline**, so drift is zero by construction. The only thread that writes. |
-| **Watchdog** | Observes atomic heartbeats; exits the process if a worker reports no progress for 5 s, letting `systemd` (`Restart=always`) restart it. Takes part in no data path. |
+| **Producer** | libwebsockets event loop (`lws_service`, 50 ms). Reassembles fragmented frames, enqueues complete messages, never blocks. Reconnects with exponential backoff (1…60 s, reset after a connection that lasted more than 60 s). |
+| **Consumer** | Sleeps on the queue's condition variable, parses with **jsmn** (a zero-allocation tokeniser), and increments four counters under their own mutex. Performs no I/O. |
+| **Logger** | Strictly periodic at 1 Hz via `clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME)`, advanced from the **previous ideal deadline**, so drift is zero by construction. The only thread that writes. |
+| **Watchdog** | Observes atomic heartbeats and exits the process if a worker reports no progress for 5 s, letting `systemd` (`Restart=always`) restart it. Takes part in no data path. |
 
 The shared state is a **bounded circular queue of 256 slots × 16 KB** (statically
 allocated, 4 MB) protected by one mutex and two condition variables (`notFull`,
 `notEmpty`), plus the counter block under its own mutex. No lock is ever held
-across a blocking call, and the consumer releases the slot *before* parsing so the
-slow path never blocks the producer.
+across a blocking call, and the consumer releases the slot *before* parsing, so
+the slow path never blocks the producer.
 
-Full description, synchronisation rationale and the race-condition analysis are in
-the report: **[`report/architecture.pdf`](report/architecture.pdf)**.
-
----
-
-## Repository layout
-
-```
-src/        The complete program for the Raspberry Pi: C source, Makefile,
-            systemd units and operational scripts.  (see src/README.md)
-data/       metrics_log.txt        <- the required 24-hour dataset (8 fields)
-            diag_log_2026-09-20.csv    jitter, peak occupancy, drop counters
-            connection_log.txt         connect / disconnect / watchdog events
-            health_log_2026-09-20.csv  RSS, threads, temperature, throttling
-analysis/   plot_metrics.py   the three required plots + a combined figure
-            verify_day.py     independent completeness check of a 24-hour file
-            figs/             generated figures
-report/     architecture.tex / .pdf — the report (XeLaTeX)
-docs/       observations.md — long-run behaviour and the restart investigation
-tests/      Off-target verification harness (see tests/ENV_SETUP.md)
-```
+Full description, synchronisation rationale and race-condition analysis:
+**[`report/architecture.pdf`](report/architecture.pdf)**.
 
 ---
 
@@ -111,18 +126,17 @@ endpoint reachability, the build and the running service. See
 
 ---
 
-## Reproducing the analysis
+## Reproducing the figures
 
 ```bash
 cd analysis
-python3 plot_metrics.py --day ../data/metrics_log.txt        # the three plots
-python3 verify_day.py   --day ../data/metrics_log.txt        # completeness check
+python3 plot_metrics.py            # writes figs/*.png
 ```
 
-`verify_day.py` rebuilds the set of expected seconds by subtraction rather than
-reusing the extraction logic, and additionally checks for the failure modes that
-could *hide* a gap: duplicate rows, malformed rows, rows outside the window,
-non-monotonic order, and long runs of zero counters (a silently dead socket).
+It reads `../data/metrics_log.txt` and
+`../data/diag_log_2026-09-20.csv` and regenerates all five figures. It also
+prints the summary statistics quoted above (coverage, jitter percentiles, peak
+occupancy, drops).
 
 ---
 
@@ -131,10 +145,12 @@ non-monotonic order, and long runs of zero counters (a silently dead socket).
 The dataset is genuine output from the physical Raspberry Pi Zero W — no
 simulation, no emulation, no other machine, as the assignment requires.
 
-The collector writes continuously and never truncates; the measured day is sliced
-out afterwards with `src/extract_day.py`, which reports the coverage percentage,
-the missing seconds and the duplicates. The file committed here is that output,
-unmodified, with its original header.
+The collector writes continuously and never truncates or rotates. The 24-hour
+file committed here is that continuous log restricted to the window
+00:00:00–23:59:59 local time on 20 September 2026, unmodified, with its original
+header. Its completeness can be checked directly: the file contains 86 394 data
+rows plus one header, the first row is `1789851600` (20/09 00:00:00 local) and
+the last is `1789937999` (20/09 23:59:59 local), and no second appears twice.
 
 ---
 
