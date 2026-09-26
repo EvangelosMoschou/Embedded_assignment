@@ -244,12 +244,12 @@ Resident memory       & 12.5\,MB & of which 4\,MB pre-allocated queue\\
 \end{center}
 
 \begin{figure}[H]\centering
-\includegraphics[width=0.82\textwidth]{figs/overview.png}
+\includegraphics[width=0.80\textwidth]{figs/overview.png}
 \caption{The three required plots over the full 24 hours.
-\textbf{(a)}~\emph{Jitter}: deviation of each periodic wake-up from its ideal deadline
-(measured with \code{CLOCK\_MONOTONIC}). \textbf{(b)}~\emph{Load and buffer}: message
-rate against queue occupancy --- instantaneous and per-second maximum.
-\textbf{(c)}~\emph{CPU}: message rate against utilisation.}
+\textbf{(a)}~\emph{Jitter}: deviation from the absolute deadline (grey, $\geq 0$ by
+construction) and the signed deviation of each one-second period from the ideal (dark).
+\textbf{(b)}~\emph{Load and buffer}: message rate vs.\ buffer occupancy.
+\textbf{(c)}~\emph{CPU}: message rate vs.\ CPU utilisation.}
 \end{figure}
 
 Two observations follow. The timing cost is dominated by TLS and WebSocket framing in
@@ -285,7 +285,6 @@ message, or produced a segmentation fault.
 \textbf{Memory is bounded.} Resident memory settled at ${\sim}12.5$\,MB, with growth
 decaying from 1900\,kB per hour initially to ${\sim}150$\,kB per hour after eight hours ---
 the signature of a statically allocated working set reaching its high-water mark, not a
-leak. Corroborated by \code{malloc\_stats()} (1.43\,MB reserved, 1.08\,MB in use) and
-LeakSanitizer.
+leak, corroborated by \code{malloc\_stats()} (1.43\,MB reserved, 1.08\,MB in use).
 
 \end{document}

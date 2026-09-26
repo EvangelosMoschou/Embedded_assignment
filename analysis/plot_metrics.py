@@ -61,6 +61,25 @@ def load(day_path, diag_path):
     return m, d
 
 
+def jitter_series(d):
+    """Δύο ορισμοί jitter, από την ΙΔΙΑ μέτρηση (δεν απαιτείται νέα εκτέλεση).
+
+    j1 = woke - deadline_i          απόκλιση από την ιδανική προθεσμία.
+                                    Είναι >= 0 εξ ορισμού, γιατί ένα
+                                    clock_nanosleep() με TIMER_ABSTIME δεν
+                                    μπορεί να ξυπνήσει νωρίτερα από την
+                                    προθεσμία.
+    j2 = woke_i - woke_(i-1) - 1s   απόκλιση της πραγματικής περιόδου από το
+                                    ιδανικό 1s. Είναι ΘΕΤΙΚΗ Ή ΑΡΝΗΤΙΚΗ.
+
+    Ισχύει ακριβώς j2_i = j1_i - j1_(i-1), γιατί οι διαδοχικές ιδανικές
+    προθεσμίες απέχουν ακριβώς 1s.
+    """
+    j1 = d["Wakeup_Jitter_us"].to_numpy() / 1000.0
+    j2 = np.concatenate([[0.0], np.diff(j1)])
+    return j1, j2
+
+
 def stats(m, d):
     print(f"  διάρκεια              : {m['Hours'].iloc[-1]:.2f} h "
           f"({len(m)} δείγματα)")
@@ -78,6 +97,10 @@ def stats(m, d):
               f"p99 {np.percentile(j, 99):.0f} µs | max {j.max()} µs")
         n5 = int((j > 5000).sum())
         print(f"  spikes > 5 ms         : {n5} ({100.0 * n5 / len(j):.3f}%)")
+        _, j2 = jitter_series(d)
+        print(f"  JITTER (περίοδος vs 1s): median {np.median(j2):.0f} ms | "
+              f"min {j2.min():.1f} | max {j2.max():.1f} ms | "
+              f"αρνητικά {int((j2 < 0).sum())} / θετικά {int((j2 > 0).sum())}")
         print(f"  απώλειες/αποκοπές     : drops={int(d['Dropped_Frames_Total'].iloc[-1])}"
               f" truncated={int(d['Truncated_Frames_Total'].iloc[-1])}")
         worst = np.argsort(j)[-5:][::-1]
@@ -105,11 +128,15 @@ def main():
     # ---- 1. Jitter ----------------------------------------------------
     fig, ax = plt.subplots(**PLT)
     if d is not None and len(d):
-        ax.plot(d["Hours"], d["Wakeup_Jitter_us"] / 1000.0,
-                lw=0.5, color="purple", label="Jitter (άμεση μέτρηση, CLOCK_MONOTONIC)")
+        j1, j2 = jitter_series(d)
+        ax.plot(d["Hours"], j1, lw=0.4, color="grey", alpha=.55,
+                label="από την ιδανική προθεσμία (>=0)")
+        ax.plot(d["Hours"], j2, lw=0.4, color="purple",
+                label="της περιόδου από το 1s (θετική ή αρνητική)")
+        ax.axhline(0, lw=.4, color="black", alpha=.5)
     ax.set_xlabel(X); ax.set_ylabel("Jitter (ms)")
     ax.set_title(f"Διάγραμμα Jitter — {a.date}")
-    ax.grid(alpha=.3); ax.legend(loc="upper right", fontsize=8)
+    ax.grid(alpha=.3); ax.legend(loc="upper right")
     fig.tight_layout(); fig.savefig(os.path.join(a.outdir, "jitter.png")); plt.close(fig)
 
     # ---- 2. Φόρτος & Buffer -------------------------------------------
@@ -161,9 +188,15 @@ def main():
     a0, a1, a2 = axes
 
     if d is not None and len(d):
-        a0.plot(d["Hours"], d["Wakeup_Jitter_us"] / 1000.0, lw=.4, color="purple")
+        j1, j2 = jitter_series(d)
+        a0.plot(d["Hours"], j1, lw=.32, color="grey", alpha=.55,
+                label="από την ιδανική προθεσμία")
+        a0.plot(d["Hours"], j2, lw=.32, color="purple",
+                label="της περιόδου από το 1s")
+        a0.axhline(0, lw=.4, color="black", alpha=.5)
+        a0.legend(loc="upper right", frameon=False)
     a0.set_ylabel("Jitter (ms)")
-    a0.set_title("(a) Διάγραμμα Jitter")
+    a0.set_title("(a) Διάγραμμα Jitter (θετικό ή αρνητικό)")
     a0.grid(alpha=.3)
 
     b1 = a1.twinx()

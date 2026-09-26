@@ -48,8 +48,9 @@ The collector ran continuously and unattended on the physical Raspberry Pi from
 | Samples logged | **86 394 / 86 400** (99.993 %) |
 | Messages classified | 3 412 814 |
 | Message rate | 39.5 Hz mean, **343 Hz peak** (peak-to-mean ≈ 8.7×) |
-| Jitter (median / p95 / p99) | **104 µs / 362 µs / 845 µs** |
-| Worst-case jitter | 18.1 ms |
+| Jitter vs. the ideal deadline (median / p95 / p99) | **104 µs / 362 µs / 845 µs** |
+| Jitter vs. the ideal deadline, worst case | 18.1 ms |
+| Jitter, signed period deviation | **median 0 ms**, range ±18 ms, symmetric (41 716 negative / 41 536 positive) |
 | Peak circular-buffer occupancy | **13.7 %** (35 of 256 slots) |
 | **Dropped frames** | **0** |
 | CPU utilisation | 7.8 % mean (of one core) |
