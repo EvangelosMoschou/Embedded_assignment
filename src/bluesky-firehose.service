@@ -1,0 +1,20 @@
+[Unit]
+Description=Bluesky Jetstream Firehose Collector (Embedded Systems 2026 Final)
+After=network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Κλειδώνει τον governor στο performance ώστε να μην υπάρχουν μεταβάσεις
+# συχνότητας (700MHz <-> 1GHz) — σταθερότεροι χρόνοι αφύπνισης, μικρότερο jitter.
+# Το '-' μπροστά σημαίνει: αν αποτύχει, ο service ξεκινά κανονικά.
+ExecStartPre=-/bin/sh -c 'echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor'
+ExecStart=/usr/local/bin/firehose_collector
+WorkingDirectory=/home/vagelismo/firehose
+Restart=always
+RestartSec=5
+WatchdogSec=60
+Nice=-10
+
+[Install]
+WantedBy=multi-user.target

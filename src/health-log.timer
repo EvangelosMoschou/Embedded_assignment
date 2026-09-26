@@ -1,0 +1,11 @@
+[Unit]
+Description=Δειγματοληψία υγείας του firehose_collector κάθε λεπτό
+
+[Timer]
+OnCalendar=*:*:00
+AccuracySec=1s
+Persistent=false
+Unit=health-log.service
+
+[Install]
+WantedBy=timers.target

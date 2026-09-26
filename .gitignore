@@ -1,0 +1,26 @@
+# Build artefacts
+*.o
+firehose_collector
+leak_probe
+
+# Python
+__pycache__/
+*.pyc
+
+# LaTeX intermediate files (the .pdf is committed)
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.xdv
+*.synctex.gz
+
+# Test harness output directories
+tests/bin/
+tests/run/
+
+# Editors / OS
+.DS_Store
+*.swp
+*~

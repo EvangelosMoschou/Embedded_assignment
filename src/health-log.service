@@ -1,0 +1,6 @@
+[Unit]
+Description=Δείγμα υγείας του firehose_collector (RSS/νήματα)
+
+[Service]
+Type=oneshot
+ExecStart=/home/vagelismo/firehose/health_log.sh
