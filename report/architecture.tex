@@ -249,13 +249,14 @@ Resident memory       & 12.5\,MB & of which 4\,MB pre-allocated queue\\
 \textbf{(a)}~\emph{Jitter}: deviation from the absolute deadline (grey, $\geq 0$ by
 construction) and the signed deviation of each one-second period from the ideal (dark).
 \textbf{(b)}~\emph{Load and buffer}: message rate vs.\ buffer occupancy.
-\textbf{(c)}~\emph{CPU}: message rate vs.\ CPU utilisation.}
+\textbf{(c)}~\emph{CPU}: the correlation of message rate (abscissa) with CPU
+utilisation, with the median of each rate band in black.}
 \end{figure}
 
-Two observations follow. The timing cost is dominated by TLS and WebSocket framing in
-the network thread, not by the work of the assignment; and the queue occupancy is best
-read as \emph{headroom}, since the peak scales with the message rate while never
-approaching saturation --- which is why the drop counter stayed at zero.
+Three observations follow. CPU rises monotonically with the incoming rate, from about
+5\,\% below 40\,Hz to about 20\,\% near 150\,Hz, yet stays far below one core; the rest of
+the cost is TLS framing. And the queue occupancy is best read as \emph{headroom} --- it
+scales with the rate while never saturating, so the drop counter stayed at zero.
 
 %-----------------------------------------------------------------------
 \section{Long-Run Behaviour and Network Resilience}

@@ -54,6 +54,7 @@ The collector ran continuously and unattended on the physical Raspberry Pi from
 | Peak circular-buffer occupancy | **13.7 %** (35 of 256 slots) |
 | **Dropped frames** | **0** |
 | CPU utilisation | 7.8 % mean (of one core) |
+| CPU vs. message rate | monotonic: ≈5 % below 40 Hz → ≈20 % near 150 Hz (Spearman ρ = 0.73, Pearson r = 0.29) |
 | Resident memory | 12.5 MB (of which 4 MB is the pre-allocated queue) |
 | Network disconnections | 42, all auto-recovered, longest outage 3.0 s |
 | Process restarts | 1 (watchdog — see below) |

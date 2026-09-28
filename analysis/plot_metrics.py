@@ -80,6 +80,25 @@ def jitter_series(d):
     return j1, j2
 
 
+def binned_median(x, y, width=40):
+    """Διάμεσος του y ανά ζώνη πλάτους `width` του x (μόνο ζώνες με >=20 δείγματα)."""
+    x = np.asarray(x); y = np.asarray(y)
+    bx, by = [], []
+    for lo in np.arange(0, x.max() + width, width):
+        sel = (x >= lo) & (x < lo + width)
+        if sel.sum() >= 20:
+            bx.append(x[sel].mean()); by.append(np.median(y[sel]))
+    return bx, by
+
+
+def spearman(x, y):
+    """Συντελεστής κατάταξης Spearman — καταλληλότερος όταν η σχέση είναι
+    μονότονη αλλά όχι γραμμική (εδώ: το 58% των δειγμάτων έχει <40 Hz)."""
+    rx = np.argsort(np.argsort(np.asarray(x)))
+    ry = np.argsort(np.argsort(np.asarray(y)))
+    return np.corrcoef(rx, ry)[0, 1]
+
+
 def stats(m, d):
     print(f"  διάρκεια              : {m['Hours'].iloc[-1]:.2f} h "
           f"({len(m)} δείγματα)")
@@ -88,6 +107,8 @@ def stats(m, d):
           f"διάμεσος {m['Hz'].median():.0f} Hz")
     print(f"  CPU                   : μέση {m['CPU_Pct'].mean():.2f}% | "
           f"μέγιστη {m['CPU_Pct'].max():.2f}%")
+    print(f"  συσχέτιση Hz-CPU%     : r={np.corrcoef(m['Hz'], m['CPU_Pct'])[0, 1]:.3f} | "
+          f"rho={spearman(m['Hz'], m['CPU_Pct']):.3f}")
     print(f"  πληρότητα buffer      : στιγμιαία max {m['Buffer_Occupancy_Pct'].max():.2f}%", end="")
     if d is not None and len(d):
         j = d["Wakeup_Jitter_us"].to_numpy()
@@ -158,18 +179,17 @@ def main():
     ax1.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=8)
     fig.tight_layout(); fig.savefig(os.path.join(a.outdir, "load_buffer.png")); plt.close(fig)
 
-    # ---- 3. CPU --------------------------------------------------------
-    fig, ax1 = plt.subplots(**PLT)
-    ax2 = ax1.twinx()
-    ax1.plot(H, m["Hz"], lw=.5, color="green", alpha=.8, label="Ρυθμός μηνυμάτων (Hz)")
-    ax2.plot(H, m["CPU_Pct"], lw=.5, color="crimson", alpha=.8, label="Χρήση CPU (%)")
-    ax1.set_xlabel(X)
-    ax1.set_ylabel("Ρυθμός Μηνυμάτων (Hz)", color="green")
-    ax2.set_ylabel("Χρήση CPU (%)", color="crimson")
-    ax1.set_title(f"Διάγραμμα CPU (φόρτος vs χρήση) — {a.date}")
-    ax1.grid(alpha=.3)
-    h1, l1 = ax1.get_legend_handles_labels(); h2, l2 = ax2.get_legend_handles_labels()
-    ax1.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=8)
+    # ---- 3. CPU: ΣΥΣΧΕΤΙΣΗ Hz <-> CPU% (scatter) -----------------------
+    fig, ax = plt.subplots(**PLT)
+    ax.scatter(m["Hz"], m["CPU_Pct"], s=1.2, alpha=.05, color="crimson", lw=0)
+    bx, by = binned_median(m["Hz"], m["CPU_Pct"])
+    ax.plot(bx, by, color="black", lw=1.2, marker="o", ms=3,
+            label="διάμεσος CPU% ανά εύρος Hz")
+    r = np.corrcoef(m["Hz"], m["CPU_Pct"])[0, 1]
+    ax.set_xlabel("Ρυθμός Μηνυμάτων (Hz)"); ax.set_ylabel("Χρήση CPU (%)")
+    ax.set_title(f"Διάγραμμα CPU: συσχέτιση Hz – CPU%  "
+                 f"(r={r:.2f}, rho={spearman(m['Hz'], m['CPU_Pct']):.2f})")
+    ax.grid(alpha=.3); ax.legend(loc="upper left")
     fig.tight_layout(); fig.savefig(os.path.join(a.outdir, "cpu_usage.png")); plt.close(fig)
 
     # ---- 4. Μετρητές ανά τύπο -----------------------------------------
@@ -182,10 +202,15 @@ def main():
     ax.grid(alpha=.3); ax.legend(fontsize=8)
     fig.tight_layout(); fig.savefig(os.path.join(a.outdir, "counters.png")); plt.close(fig)
 
-    # ---- 5. Συνοπτικό σχήμα 3 πάνελ (κοινός άξονας χρόνου) για την αναφορά
-    fig, axes = plt.subplots(3, 1, figsize=(7.0, 4.6), dpi=200, sharex=True,
-                             gridspec_kw={"hspace": 0.24})
+    # ---- 5. Συνοπτικό σχήμα 3 πάνελ για την αναφορά --------------------
+    # Τα (a) και (b) μοιράζονται τον άξονα χρόνου· το (c) είναι διάγραμμα
+    # ΣΥΣΧΕΤΙΣΗΣ (Hz στον x), όπως ακριβώς το ζητά η εκφώνηση.
+    fig, axes = plt.subplots(3, 1, figsize=(7.0, 4.55), dpi=200,
+                             gridspec_kw={"hspace": 0.34})
     a0, a1, a2 = axes
+    for _ax in (a0, a1):
+        _ax.set_xlim(0, 24)
+    a0.tick_params(labelbottom=False)
 
     if d is not None and len(d):
         j1, j2 = jitter_series(d)
@@ -208,15 +233,15 @@ def main():
     b1.set_ylabel("Buffer %", color="steelblue")
     a1.set_title("(b) Διάγραμμα Φόρτου & Buffer")
     a1.grid(alpha=.3)
+    a1.set_xlabel(X)
 
-    c1 = a2.twinx()
-    a2.plot(H, m["Hz"], lw=.4, color="green")
-    c1.plot(H, m["CPU_Pct"], lw=.4, color="crimson", alpha=.8)
-    a2.set_ylabel("Hz", color="green")
-    c1.set_ylabel("CPU %", color="crimson")
-    a2.set_title("(c) Διάγραμμα CPU")
+    a2.scatter(m["Hz"], m["CPU_Pct"], s=.8, alpha=.05, color="crimson", lw=0)
+    bx, by = binned_median(m["Hz"], m["CPU_Pct"])
+    a2.plot(bx, by, color="black", lw=1.0, marker="o", ms=2.5)
+    a2.set_xlabel("Ρυθμός Μηνυμάτων (Hz)")
+    a2.set_ylabel("CPU %")
+    a2.set_title("(c) Διάγραμμα CPU: συσχέτιση Hz – CPU%")
     a2.grid(alpha=.3)
-    a2.set_xlabel(X)
 
     fig.savefig(os.path.join(a.outdir, "overview.png"))
     plt.close(fig)
