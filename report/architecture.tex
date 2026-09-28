@@ -238,7 +238,7 @@ Jitter, median        & \SI{104}{\micro\second} & 95th pct.\ \SI{362}{\micro\sec
 Jitter, 99th pct.     & \SI{845}{\micro\second} & worst case \SI{18.1}{\milli\second}\\
 Queue occupancy       & 13.7\,\% peak & 35 of 256 slots; 0 frames dropped\\
 CPU, whole process    & 7.8\,\% mean & of one core\\
-Resident memory       & 12.5\,MB & of which 4\,MB pre-allocated queue\\
+Resident memory       & 12.2\,MB & of which 4\,MB pre-allocated queue\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -278,14 +278,14 @@ an \emph{identical} seven-second interval with no messages and \emph{no} restart
 the producer was alive and only the server was quiet --- so the criterion is not
 ``absence of data'' but ``absence of progress by the thread''.
 
-\textbf{Flapping is absorbed.} 64 disconnections and 62 reconnections occurred over
-about thirty hours, in bursts of up to 21 in one hour. Each produced an automatic
-reconnection with exponential backoff; none restarted the process, lost a classified
-message, or produced a segmentation fault.
+\textbf{Flapping is absorbed.} 42 disconnections and 42 reconnections occurred during
+the day, never more than seven in a single hour. Each produced an automatic reconnection
+with exponential backoff; none restarted the process, lost a classified message, or
+produced a segmentation fault.
 
-\textbf{Memory is bounded.} Resident memory settled at ${\sim}12.5$\,MB, with growth
-decaying from 1900\,kB per hour initially to ${\sim}150$\,kB per hour after eight hours ---
-the signature of a statically allocated working set reaching its high-water mark, not a
-leak, corroborated by \code{malloc\_stats()} (1.43\,MB reserved, 1.08\,MB in use).
+\textbf{Memory is bounded.} Resident memory grew by only 224\,kB across the whole day, from
+11.9 to 12.2\,MB, the rate decaying from about 128\,kB per hour initially to about 21\,kB
+per hour by hours eight to twelve --- the signature of a statically allocated working set
+reaching its high-water mark, not a leak (\code{malloc\_stats()}: 1.43\,MB reserved).
 
 \end{document}

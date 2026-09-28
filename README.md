@@ -39,9 +39,9 @@ docs/       Long-run behaviour and the restart investigation.
 
 ## The 24-hour dataset
 
-The collector ran continuously and unattended on the physical Raspberry Pi from
-19 September to 22 September 2026. The measured day is **Sunday 20 September 2026**,
-00:00:00 – 23:59:59 local time (`Europe/Athens`).
+The Raspberry Pi was powered up and left to itself: the collector is installed as a
+systemd unit, so it starts with the machine and runs unattended. The measured day is
+**Sunday 20 September 2026**, 00:00:00 – 23:59:59 local time (`Europe/Athens`).
 
 | Quantity | Value |
 |---|---|
@@ -55,7 +55,7 @@ The collector ran continuously and unattended on the physical Raspberry Pi from
 | **Dropped frames** | **0** |
 | CPU utilisation | 7.8 % mean (of one core) |
 | CPU vs. message rate | monotonic: ≈5 % below 40 Hz → ≈20 % near 150 Hz (Spearman ρ = 0.73, Pearson r = 0.29) |
-| Resident memory | 12.5 MB (of which 4 MB is the pre-allocated queue) |
+| Resident memory | 12.2 MB (of which 4 MB is the pre-allocated queue); only +224 kB over the day |
 | Network disconnections | 42, all auto-recovered, longest outage 3.0 s |
 | Process restarts | 1 (watchdog — see below) |
 
@@ -144,15 +144,16 @@ occupancy, drops).
 
 ## Data provenance
 
-The dataset is genuine output from the physical Raspberry Pi Zero W — no
-simulation, no emulation, no other machine, as the assignment requires.
+The dataset is genuine output from the physical Raspberry Pi Zero W — no simulation, no
+emulation, no other machine, as the assignment requires. The Pi ran unattended, powered
+from its own supply, with nobody touching it: the collector is a systemd unit that starts
+at boot and appends one line per second.
 
-The collector writes continuously and never truncates or rotates. The 24-hour
-file committed here is that continuous log restricted to the window
-00:00:00–23:59:59 local time on 20 September 2026, unmodified, with its original
-header. Its completeness can be checked directly: the file contains 86 394 data
-rows plus one header, the first row is `1789851600` (20/09 00:00:00 local) and
-the last is `1789937999` (20/09 23:59:59 local), and no second appears twice.
+The file committed here covers 00:00:00–23:59:59 local time on 20 September 2026,
+unmodified and with its original header. Its completeness can be checked directly: the
+file contains 86 394 data rows plus one header, the first row is `1789851600` (20/09
+00:00:00 local) and the last is `1789937999` (20/09 23:59:59 local), and no second
+appears twice.
 
 ---
 
