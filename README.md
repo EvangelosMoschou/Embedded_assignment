@@ -1,6 +1,6 @@
 # Bluesky Jetstream Firehose Collector
 
-**https://github.com/EvangelosMoschou/Embedded_assignment**
+**Evangelos Moschou (10986)** — <https://github.com/EvangelosMoschou/Embedded_assignment>
 
 A multithreaded, real-time data acquisition system written in **C**, running on a
 **Raspberry Pi Zero W** (ARM1176 / ARMv6, single core @ 1 GHz, 512 MB, no
