@@ -181,7 +181,7 @@ def main():
 
     # ---- 3. CPU: ΣΥΣΧΕΤΙΣΗ Hz <-> CPU% (scatter) -----------------------
     fig, ax = plt.subplots(**PLT)
-    ax.scatter(m["Hz"], m["CPU_Pct"], s=1.2, alpha=.05, color="crimson", lw=0)
+    ax.scatter(m["Hz"], m["CPU_Pct"], s=1.6, alpha=.10, color="crimson", lw=0)
     bx, by = binned_median(m["Hz"], m["CPU_Pct"])
     ax.plot(bx, by, color="black", lw=1.2, marker="o", ms=3,
             label="διάμεσος CPU% ανά εύρος Hz")
@@ -235,7 +235,7 @@ def main():
     a1.grid(alpha=.3)
     a1.set_xlabel(X)
 
-    a2.scatter(m["Hz"], m["CPU_Pct"], s=.8, alpha=.05, color="crimson", lw=0)
+    a2.scatter(m["Hz"], m["CPU_Pct"], s=1.4, alpha=.10, color="crimson", lw=0)
     bx, by = binned_median(m["Hz"], m["CPU_Pct"])
     a2.plot(bx, by, color="black", lw=1.0, marker="o", ms=2.5)
     a2.set_xlabel("Ρυθμός Μηνυμάτων (Hz)")
